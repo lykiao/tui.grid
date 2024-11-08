@@ -142,7 +142,9 @@ function updateTreeColumnWidth(
 
   // @TODO: auto resizing is operated with 'autoResizing' option
   // 'resizable' condition should be deprecated in next version
-  if (columnInfo.resizable || columnInfo.autoResizing) {
+  // modify by liq 解决树列隐藏后，expand/collapse节点报错问题：Cannot read properties of undefined (reading 'resizable')
+  // if (columnInfo.resizable || columnInfo.autoResizing) {
+  if (columnInfo && (columnInfo.resizable || columnInfo.autoResizing)) {
     const maxWidth = getChildTreeNodeMaxWidth(
       childRowKeys,
       rawData,

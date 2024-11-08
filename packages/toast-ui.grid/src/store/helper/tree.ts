@@ -128,26 +128,181 @@ export function createTreeRawRow(
   return rawRow;
 }
 
+// modify by liq 避免层级过多时报Maximum call stack size exceeded的错误
+// export function flattenTreeData(
+//   id: number,
+//   data: OptRow[],
+//   parentRow: Row | null,
+//   column: Column,
+//   options: TreeDataOption
+// ) {
+//   const flattenedRows: Row[] = [];
+
+//   data.forEach((row) => {
+//     const rawRow = createTreeRawRow(id, row, parentRow, column, options);
+
+//     flattenedRows.push(rawRow);
+
+//     if (Array.isArray(row._children)) {
+//       if (row._children.length) {
+//         flattenedRows.push(...flattenTreeData(id, row._children, rawRow, column, options));
+//       }
+//     }
+//   });
+
+//   return flattenedRows;
+// }
+
+// function trampoline(fn: (...args: any[]) => any) {
+//   return function (...args: any[]) {
+//     let result = fn(...args);
+//     while (typeof result === 'function') {
+//       result = result();
+//     }
+//     return result;
+//   };
+// }
+// export function flattenTreeData(
+//   id: number,
+//   data: OptRow[],
+//   parentRow: Row | null,
+//   column: Column,
+//   options: TreeDataOption
+// ): Row[] {
+//   const flattenedRows: Row[] = [];
+//   const processRow = (row: OptRow, parent: Row | null): Row | null => {
+//     const rawRow = createTreeRawRow(id, row, parent, column, options);
+//     flattenedRows.push(rawRow);
+//     // 返回处理后的行
+//     return rawRow;
+//   };
+//   const traverse = (rows: OptRow[]): (() => Row[] | null) | null => {
+//     let index = 0;
+//     const next = (): Row[] | null => {
+//       if (index >= rows.length) {
+//         return null;
+//       }
+//       const row = rows[(index += 1)];
+//       const result = processRow(row, parentRow);
+//       if (result) {
+//         // 处理孩子行
+//         const childrenResult = row._children
+//           ? flattenTreeData(id, row._children as OptRow[], result, column, options)
+//           : null;
+//         if (childrenResult) {
+//           flattenedRows.push(...childrenResult);
+//         }
+//         // 返回下一步的处理
+//         return next();
+//       }
+//       // 如果没有结果，继续下一步
+//       return next();
+//     };
+//     return next;
+//   };
+//   const initialCall = traverse(data);
+//   trampoline(() => {
+//     if (initialCall) {
+//       // 处理初始调用并确保返回数组
+//       return initialCall() || [];
+//     }
+//     // 没有初始调用时返回空数组
+//     return [];
+//   })();
+//   return flattenedRows;
+// }
+
+// function trampoline(fn: (...args: any[]) => any) {
+//   return function (...args: any[]) {
+//     let result = fn(...args);
+//     while (typeof result === 'function') {
+//       result = result();
+//     }
+//     return result;
+//   };
+// }
+// export function flattenTreeData(
+//   id: number,
+//   data: OptRow[],
+//   parentRow: Row | null,
+//   column: Column,
+//   options: TreeDataOption
+// ): Row[] {
+//   const flattenedRows: Row[] = [];
+//   const processRow = (row: OptRow, parent: Row | null): Row => {
+//     const rawRow = createTreeRawRow(id, row, parent, column, options);
+//     flattenedRows.push(rawRow);
+//     return rawRow;
+//   };
+//   const traverse = (rows: OptRow[]): (() => Row[] | null) | null => {
+//     // 初始化为 -1
+//     let index = -1;
+//     const next = (): Row[] | null => {
+//       // 在访问之前自增
+//       index++;
+//       if (index >= rows.length) {
+//         // 处理完所有行后返回 null
+//         return null;
+//       }
+//       // 现在可以安全地访问当前行
+//       const row = rows[index];
+//       const result = processRow(row, parentRow);
+//       // 处理子节点
+//       if (row._children) {
+//         const childrenResult = flattenTreeData(
+//           id,
+//           row._children as OptRow[],
+//           result,
+//           column,
+//           options
+//         );
+//         if (childrenResult) {
+//           // 合并子节点的结果
+//           // 达到7层深度时还是会在此处报错：Maximum call stack size exceeded
+//           flattenedRows.push(...childrenResult);
+//         }
+//       }
+//       // 继续处理下一行
+//       return next();
+//     };
+//     // 返回用于处理下一行的函数
+//     return next;
+//   };
+//   const initialCall = traverse(data);
+//   trampoline(() => {
+//     if (initialCall) {
+//       return initialCall() || [];
+//     }
+//     return [];
+//   })();
+//   return flattenedRows;
+// }
+
 export function flattenTreeData(
   id: number,
   data: OptRow[],
   parentRow: Row | null,
   column: Column,
   options: TreeDataOption
-) {
+): Row[] {
   const flattenedRows: Row[] = [];
-
-  data.forEach((row) => {
-    const rawRow = createTreeRawRow(id, row, parentRow, column, options);
-
+  const stack: { row: OptRow; parent: Row | null }[] = [];
+  // 使用 unshift 反向推入根节点，[n, n-1, ..., 2, 1, 0]，保证处理顺序从0开始pop
+  for (const row of data) {
+    stack.unshift({ row, parent: parentRow });
+  }
+  while (stack.length) {
+    // pop 最后推入的节点
+    const { row, parent } = stack.pop()!;
+    const rawRow = createTreeRawRow(id, row, parent, column, options);
     flattenedRows.push(rawRow);
-
-    if (Array.isArray(row._children)) {
-      if (row._children.length) {
-        flattenedRows.push(...flattenTreeData(id, row._children, rawRow, column, options));
+    // 反向推入子节点，[n, n-1, ..., 2, 1, 0]，确保下次 pop 时顺序正确
+    if (row._children) {
+      for (let i = row._children.length - 1; i >= 0; i--) {
+        stack.push({ row: row._children[i], parent: rawRow });
       }
     }
-  });
+  }
 
   return flattenedRows;
 }

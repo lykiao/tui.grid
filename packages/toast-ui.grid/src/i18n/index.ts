@@ -267,6 +267,48 @@ const messages: OptI18nLanguage = {
       excelExport: 'Esportazione Excel',
     },
   },
+  zh: {
+    display: {
+      noData: '暂无数据',
+      loadingData: '加载中...',
+      resizeHandleGuide: '您可以通过鼠标拖动来更改列的宽度，双击可恢复初始宽度。',
+    },
+    net: {
+      confirmCreate: '您确定要创建 {{count}} 条数据吗？',
+      confirmUpdate: '您确定要更新 {{count}} 条数据吗？',
+      confirmDelete: '您确定要删除 {{count}} 条数据吗？',
+      confirmModify: '您确定要修改 {{count}} 条数据吗？',
+      noDataToCreate: '不存在可创建的数据。',
+      noDataToUpdate: '不存在可更新的数据。',
+      noDataToDelete: '不存在可删除的数据。',
+      noDataToModify: '不存在可修改的数据。',
+      failResponse: '请求数据时发生错误。\n请重试。',
+    },
+    filter: {
+      contains: '包含',
+      eq: '等于',
+      ne: '不等于',
+      start: '匹配开始',
+      end: '匹配结束',
+      after: '之后',
+      afterEq: '之后或等于',
+      before: '之前',
+      beforeEq: '之前或等于',
+      apply: '应用',
+      clear: '清除',
+      selectAll: '全选',
+      emptyValue: '空值',
+    },
+    contextMenu: {
+      copy: '复制',
+      copyColumns: '复制列',
+      copyRows: '复制行',
+      export: '导出',
+      txtExport: '文本导出',
+      csvExport: 'CSV 导出',
+      excelExport: 'Excel 导出',
+    },
+  },
 };
 
 let messageMap: MessageMapType = {};

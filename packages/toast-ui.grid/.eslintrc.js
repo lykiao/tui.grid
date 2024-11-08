@@ -40,6 +40,9 @@ module.exports = {
     'spaced-comment': 0,
     curly: 2,
     complexity: 0,
+    // add by liq
+    // '@typescript-eslint/no-empty-function': 'off',
+    'no-plusplus': 'off', // 关闭禁止使用自增运算符的规则
   },
   settings: {
     react: {

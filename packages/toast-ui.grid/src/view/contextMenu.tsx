@@ -18,6 +18,10 @@ export class ContextMenuComp extends Component<Props> {
   private container: HTMLElement | null = null;
 
   private adjustPos() {
+    // add by liq
+    if (!this.container) {
+      return;
+    }
     const { pos } = this.props;
 
     const { left, top, right, bottom } = pos!;
@@ -43,7 +47,10 @@ export class ContextMenuComp extends Component<Props> {
 
   render() {
     const { pos, menuItems } = this.props;
-
+    // add by liq
+    if (!menuItems) {
+      return null;
+    }
     if (pos) {
       return (
         <ul

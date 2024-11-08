@@ -354,7 +354,12 @@ export class ContainerComp extends Component<Props> {
     const { offsetLeft, offsetTop } = this.props;
     const { clientHeight, clientWidth } = this.el!;
     const [pageX, pageY] = getCoordinateWithOffset(ev.pageX, ev.pageY);
-    const bodyArea = findParentByClassName(ev.target as HTMLElement, 'body-area')!;
+    // modify by liq
+    // const bodyArea = findParentByClassName(ev.target as HTMLElement, 'body-area')!;
+    let bodyArea = findParentByClassName(ev.target as HTMLElement, 'body-area')!;
+    if (!bodyArea) {
+      bodyArea = document.querySelector('div.tui-grid-layer-state') as HTMLElement;
+    }
     const side: Side = findParentByClassName(bodyArea, 'lside-area') ? 'L' : 'R';
     const { scrollTop, scrollLeft } = bodyArea;
     const { top, left } = bodyArea.getBoundingClientRect();

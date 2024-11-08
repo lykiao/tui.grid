@@ -29,6 +29,10 @@ export function setHeaderHeight(store: Store, height: number) {
 }
 
 export function refreshLayout(store: Store, containerEl: HTMLElement, parentEl: HTMLElement) {
+  // add by liq
+  if (!containerEl) {
+    return;
+  }
   const { dimension } = store;
   const { autoWidth, fitToParentHeight } = dimension;
   const { clientHeight, clientWidth, scrollTop, scrollLeft } = containerEl;

@@ -294,7 +294,9 @@ export function getRowKeyByIndexWithPageRange(data: Data, rowIndex: number) {
   if (isClientPagination(data)) {
     rowIndex += data.pageRowRange[0];
   }
-  return data.filteredRawData[rowIndex].rowKey;
+  // modify by liq
+  // return data.filteredRawData[rowIndex].rowKey;
+  return data.filteredRawData[rowIndex] ? data.filteredRawData[rowIndex].rowKey : -1;
 }
 
 export function getFormattedValue(store: Store, rowKey: RowKey, columnName: string) {
