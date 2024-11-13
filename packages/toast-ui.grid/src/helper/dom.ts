@@ -169,7 +169,9 @@ export function cls(...names: (ClassNameType | [boolean, ClassNameType])[]) {
 }
 
 function isSvgElement(el: Element) {
-  return el.namespaceURI?.indexOf('svg') !== -1;
+  // modify by liq
+  // return el.namespaceURI?.indexOf('svg') !== -1;
+  return el?.namespaceURI?.indexOf('svg') !== -1;
 }
 
 export function isDatePickerElement(el: Element) {
