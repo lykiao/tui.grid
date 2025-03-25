@@ -102,6 +102,7 @@ export type SortedColumnWithComprator = SortedColumn & { comparator?: Comparator
 export interface ListItem {
   text: string;
   value: CellValue;
+  extra?: string;
 }
 
 export interface PageOptions {

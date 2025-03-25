@@ -192,9 +192,23 @@ function createRelationViewCell(
     const targetEditor = columnMap[targetName].editor;
     const targetEditorOptions = targetEditor?.options;
 
-    const relationMatched = isFunction(listItemsCallback)
-      ? someProp('value', targetValue, targetListItems)
-      : true;
+    // modify by liq 解决"a,b"不能识别relationMatched为true，导致relations的checkbox多选时不回显问题
+    // const relationMatched = isFunction(listItemsCallback)
+    //   ? someProp('value', targetValue, targetListItems)
+    //   : true;
+    let relationMatched;
+    if (isFunction(listItemsCallback)) {
+      if (typeof targetValue === 'string' && targetValue) {
+        const values = targetValue.split(',');
+        relationMatched = values.some((val) => someProp('value', val, targetListItems));
+      } else {
+        // 处理 targetValue 不是字符串的情况
+        relationMatched = false;
+      }
+    } else {
+      // 如果 listItemsCallback 不是函数
+      relationMatched = true;
+    }
 
     const cellData = createViewCell(id, row, columnMap[targetName], {
       relationInfo: {

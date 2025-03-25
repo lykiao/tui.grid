@@ -21,7 +21,7 @@ const CHECKED_RADIO_LABEL_CLASSNAME = cls('editor-label-icon-radio-checked');
 const UNCHECKED_CHECKBOX_LABEL_CLASSNAME = cls('editor-label-icon-checkbox');
 const CHECKED_CHECKBOX_LABEL_CLASSNAME = cls('editor-label-icon-checkbox-checked');
 
-export class CheckboxEditor implements CellEditor, InstantlyAppliable {
+export class CheckboxDblFilterEditor implements CellEditor, InstantlyAppliable {
   public el: HTMLElement;
 
   public isMounted = false;
@@ -43,11 +43,36 @@ export class CheckboxEditor implements CellEditor, InstantlyAppliable {
 
   private filterable = false;
 
+  // 下拉框
+  private filterSelect: HTMLSelectElement | null = null;
+
+  // 下拉框的过滤输入框
+  private filterSelInput: HTMLInputElement | null = null;
+
+  // 外部传入的选项
+  private selectOptions: Array<{ value: string; label: string }> = [];
+
+  // 外部传入的下拉placeholder
+  private selectPlaceholder: string | null = null;
+
+  // 左侧下拉选择值
+  private filterSelectValue = '';
+
+  // 右侧input框输入值
+  private filterInputValue = '';
+
+  // layer最大高度
+  private maxLayerHeight = 0;
+
+  // 下拉框filterSelect的size
+  private optionSize = 0;
+
   instantApplyCallback: ((...args: any[]) => void) | null = null;
 
   public constructor(props: CellEditorProps) {
     const { columnInfo, width, formattedValue, portalEditingKeydown, instantApplyCallback } = props;
-    const { type: inputType, instantApply, filterable } = columnInfo.editor?.options ?? {};
+    const { type: inputType, instantApply, filterable, selectOptions, selectPlaceholder } =
+      columnInfo.editor?.options ?? {};
     const el = document.createElement('div');
     const value = String(isNil(props.value) ? '' : props.value);
     el.className = cls('layer-editing-inner');
@@ -63,6 +88,9 @@ export class CheckboxEditor implements CellEditor, InstantlyAppliable {
     this.el = el;
     // modify by liq 位置调整
     this.filterable = filterable;
+    // 接收外部传入的选项
+    this.selectOptions = selectOptions || [];
+    this.selectPlaceholder = selectPlaceholder;
     const layer = this.createLayer(listItems, width);
     this.layer = layer;
 
@@ -80,7 +108,7 @@ export class CheckboxEditor implements CellEditor, InstantlyAppliable {
     // To hide the initial layer which is having the position which is not calculated properly
     setOpacity(layer, 0);
 
-    listItems.forEach(({ text, value }) => {
+    listItems.forEach(({ text, value, extra }) => {
       // add by liq 添加if判断
       if (value) {
         const id = `checkbox-${value}`;
@@ -89,6 +117,13 @@ export class CheckboxEditor implements CellEditor, InstantlyAppliable {
         listItemEl.id = id;
         listItemEl.className = LIST_ITEM_CLASSNAME;
         listItemEl.appendChild(this.createCheckboxLabel(value, text));
+
+        // 为 li 添加 extra 属性
+        if (extra) {
+          listItemEl.setAttribute('data-extra', extra); // 使用 data-extra 作为属性名
+        } else {
+          listItemEl.setAttribute('data-extra', 'empty'); // 或者设置为一个默认值
+        }
 
         this.elementIds.push(id);
 
@@ -106,31 +141,151 @@ export class CheckboxEditor implements CellEditor, InstantlyAppliable {
   }
 
   // add by liq
-  private onFilterInput = (event: Event) => {
-    const value = (event.target as HTMLInputElement).value.toLowerCase(); // 获取输入值并转换为小写
+  // 过滤下拉框选项
+  private onFilterSelInputChange = (event: Event) => {
+    const inputValue = (event.target as HTMLInputElement).value.toLowerCase();
+    this.filterSelectOptions(inputValue);
+    if (inputValue === '') {
+      // 取消选择
+      this.filterSelect!.value = '';
+      this.filterSelectValue = '';
+      this.doSearch();
+    }
+  };
 
+  private onFilterSelInputClick = (event: Event) => {
+    const inputValue = (event.target as HTMLInputElement).value.toLowerCase();
+    this.filterSelectOptions(inputValue);
+    if (this.filterSelect) {
+      this.filterSelect.size = this.optionSize;
+      if (this.filterSelect.style.display === 'none') {
+        this.filterSelect.style.display = 'block';
+      } else {
+        this.filterSelect.style.display = 'none';
+      }
+    }
+  };
+
+  // 过滤选项
+  private filterSelectOptions(inputValue: string) {
+    const options = Array.from(this.filterSelect!.options);
+    options.forEach((option) => {
+      const isVisible = option.text.toLowerCase().includes(inputValue);
+      option.style.display = isVisible ? 'block' : 'none'; // 仅显示匹配项
+    });
+  }
+
+  private onFilterSelInputFocus = (event: Event) => {
+    const selInput = event.target as HTMLInputElement;
+    // this.filterSelect!.style.borderColor = '#485fc7'; // 设置聚焦时的边框颜色
+    this.filterSelect!.style.zIndex = '1500'; // 防止右边线被覆盖
+    if (selInput) {
+      selInput.style.zIndex = '2000'; // 防止右边线被覆盖
+      selInput.style.borderColor = '#485fc7'; // 设置聚焦时的边框颜色
+    }
+  };
+
+  private onFilterSelInputBlur = (event: Event) => {
+    const selInput = event.target as HTMLInputElement;
+    // this.filterSelect!.style.borderColor = '#aaa'; // 恢复默认边框颜色
+    this.filterSelect!.style.zIndex = '1000'; // 恢复zIndex
+    if (selInput) {
+      selInput.style.zIndex = '1000'; // 恢复zIndex
+      selInput.style.borderColor = '#aaa'; // 恢复默认边框颜色
+    }
+  };
+
+  private onFilterSelectFocus = (event: Event) => {
+    const select = event.target as HTMLInputElement;
+    if (select) {
+      select.style.borderColor = '#485fc7'; // 设置聚焦时的边框颜色
+      select.style.zIndex = '1500'; // 防止右边线被覆盖
+    }
+    this.filterSelInput!.style.zIndex = '2000'; // 防止右边线被覆盖
+  };
+
+  private onFilterSelectBlur = (event: Event) => {
+    const select = event.target as HTMLInputElement;
+    if (select) {
+      select.style.borderColor = '#aaa'; // 恢复默认边框颜色
+      select.style.zIndex = '1000'; // 恢复zIndex
+    }
+    this.filterSelInput!.style.zIndex = '1000'; // 恢复zIndex
+  };
+
+  // 处理下拉框变化事件
+  private onFilterSelectChange = (event: Event) => {
+    this.filterSelectValue = (event.target as HTMLSelectElement).value;
+    console.log('Selected value:', this.filterSelectValue);
+    // 将选择的文本信息显示到左侧input框中
+    const selectedOption = this.filterSelect!.options[this.filterSelect!.selectedIndex];
+    const selectedText = selectedOption ? selectedOption.text : ''; // 确保有文本
+    this.filterSelInput!.value = selectedText; // 将选中的文本设置到 filterSelInput
+    // 执行查询
+    this.doSearch();
+  };
+
+  // 处理下拉框变化事件
+  private onFilterSelectMouseup = (event: Event) => {
+    const target = event.target as HTMLElement;
+    console.log('onFilterSelectMouseup:', target);
+    // 检查目标是否是 option 元素
+    setTimeout(() => {
+      if (target.tagName === 'OPTION') {
+        this.filterSelect!.style.display = 'none';
+      }
+    }, 10);
+  };
+
+  private onFilterInput = (event: Event) => {
+    this.filterInputValue = (event.target as HTMLInputElement).value.toLowerCase(); // 获取输入值并转换为小写
+    this.doSearch();
+  };
+
+  private doSearch() {
     // 清空当前的列表项
     this.layer.querySelectorAll('li').forEach((item) => {
       const label = item.textContent?.toLowerCase() || '';
-      if (label.includes(value)) {
+      // const inputElement = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
+      // const value = inputElement ? inputElement.value : '';
+      const extra = item.getAttribute('data-extra');
+      if (
+        label.includes(this.filterInputValue) &&
+        ((this.filterSelectValue !== '' && extra === this.filterSelectValue) ||
+          this.filterSelectValue === '')
+      ) {
         item.style.display = ''; // 显示匹配项
       } else {
         item.style.display = 'none'; // 隐藏不匹配项
       }
     });
-  };
+    // 更新宽度
+    this.updateEverySize();
+  }
 
   private onFilterFocus = (event: Event) => {
     const input = event.target as HTMLInputElement;
     if (input) {
       input.style.borderColor = '#485fc7'; // 设置聚焦时的边框颜色
+      input.style.zIndex = '2000'; // 防止左边线被覆盖
     }
+    setTimeout(() => {
+      // 隐藏下拉
+      if (this.filterSelect) {
+        this.filterSelect.style.display = 'none';
+      }
+      // 如果无选择项，则清空selInput
+      if (this.filterSelect!.value === '') {
+        this.filterSelInput!.value = '';
+      }
+    }, 10);
   };
 
   private onFilterBlur = (event: Event) => {
     const input = event.target as HTMLInputElement;
     if (input) {
       input.style.borderColor = '#aaa'; // 恢复默认边框颜色
+      input.style.zIndex = '1000'; // 恢复zIndex
     }
   };
 
@@ -256,10 +411,26 @@ export class CheckboxEditor implements CellEditor, InstantlyAppliable {
     if (this.layer.scrollHeight > this.layer.clientHeight) {
       plusWidth = plusWidth + 17; // 纵向滚动条宽度
     }
+    const halfWidth = (this.layer.clientWidth + plusWidth) / 2;
+    if (this.filterSelect) {
+      // 左侧下拉
+      this.filterSelect.style.width = `${halfWidth}px`;
+      // this.filterSelect.style.top = `${pixelToNumber(this.layer.style.top) - 29}px`;
+      this.filterSelect.style.top = `${pixelToNumber(this.layer.style.top)}px`;
+      this.filterSelect.style.left = `${this.layer.style.left}`;
+    }
+    if (this.filterSelInput) {
+      // 左侧下拉的input，width减掉下拉按钮宽度15px，top加上拉边线1px，left加左边线1px
+      // this.filterSelInput.style.width = `${halfWidth - 15}px`;
+      this.filterSelInput.style.width = `${halfWidth + 2}px`;
+      this.filterSelInput.style.top = `${pixelToNumber(this.layer.style.top) - 29}px`;
+      this.filterSelInput.style.left = `${pixelToNumber(this.layer.style.left)}px`;
+    }
     if (this.filterInput) {
-      this.filterInput.style.width = `${this.layer.clientWidth + plusWidth}px`;
+      // 右侧input框，width减1，left加1
+      this.filterInput.style.width = `${halfWidth - 1}px`;
       this.filterInput.style.top = `${pixelToNumber(this.layer.style.top) - 29}px`;
-      this.filterInput.style.left = `${this.layer.style.left}`;
+      this.filterInput.style.left = `${pixelToNumber(this.layer.style.left) + halfWidth + 1}px`;
     }
   }
 
@@ -305,8 +476,57 @@ export class CheckboxEditor implements CellEditor, InstantlyAppliable {
     // @ts-ignore
     setLayerPosition(this.el, this.layer);
 
-    // add by liq 创建过滤输入框
+    // add by liq 创建过滤组件
     if (this.filterable) {
+      // 创建左侧下拉框
+      this.filterSelect = document.createElement('select');
+      this.filterSelect.id = 'filterSelectElement';
+      this.filterSelect.size = 10;
+      this.filterSelect.style.display = 'none';
+      this.filterSelect.style.height = 'unset';
+      this.filterSelect.style.marginRight = '0'; // 下拉框和输入框的间距
+      this.filterSelect.style.position = 'absolute'; // 绝对定位
+      this.filterSelect.style.top = '0'; // 固定在顶部
+      this.filterSelect.style.left = '0'; // 根据需要调整
+      this.filterSelect.style.zIndex = '1000'; // 确保下拉框在顶部
+      this.filterSelect.style.border = 'solid 1px #aaa';
+      // 添加外部传入的选项
+      this.selectOptions.forEach((option) => {
+        const opt = document.createElement('option');
+        opt.value = option.value;
+        opt.textContent = option.label;
+        this.filterSelect!.appendChild(opt);
+      });
+      // 监听下拉框变化事件
+      this.filterSelect.addEventListener('focus', this.onFilterSelectFocus);
+      this.filterSelect.addEventListener('blur', this.onFilterSelectBlur);
+      this.filterSelect.addEventListener('change', this.onFilterSelectChange);
+      this.filterSelect.addEventListener('mouseup', this.onFilterSelectMouseup);
+      getContainerElement(this.el).appendChild(this.filterSelect);
+      // 创建下拉框的过滤输入框
+      this.filterSelInput = document.createElement('input');
+      this.filterSelect.id = 'filterSelInputElement';
+      this.filterSelInput.type = 'text';
+      this.filterSelInput.placeholder = this.selectPlaceholder
+        ? this.selectPlaceholder
+        : '过滤选项...';
+      // height减掉下拉上下边线2px
+      this.filterSelInput.style.height = '30px';
+      this.filterSelInput.style.padding = '0 10px'; // 设置内边距
+      this.filterSelInput.style.position = 'absolute';
+      this.filterSelInput.style.top = '0'; // 固定在顶部
+      this.filterSelInput.style.left = '0'; // 下拉框左侧
+      this.filterSelInput.style.zIndex = '1000';
+      this.filterSelInput.style.marginRight = '0'; // 输入框和下拉框的间距
+      this.filterSelInput.style.border = 'solid 1px #aaa';
+      // 监听过滤输入框事件
+      this.filterSelInput.addEventListener('focus', this.onFilterSelInputFocus);
+      this.filterSelInput.addEventListener('blur', this.onFilterSelInputBlur);
+      this.filterSelInput.addEventListener('input', this.onFilterSelInputChange);
+      this.filterSelInput.addEventListener('click', this.onFilterSelInputClick);
+      getContainerElement(this.el).appendChild(this.filterSelInput);
+
+      // 创建右侧input框
       this.filterInput = document.createElement('input');
       this.filterInput.type = 'text';
       this.filterInput.placeholder = '输入关键字过滤...';
@@ -316,7 +536,7 @@ export class CheckboxEditor implements CellEditor, InstantlyAppliable {
       this.filterInput.style.position = 'absolute'; // 使用绝对定位
       this.filterInput.style.top = '0'; // 固定在 layer 顶部
       this.filterInput.style.left = '0'; // 根据需要调整
-      this.filterInput.style.width = '100%'; // 可以设置为100%以匹配父容器的宽度
+      this.filterInput.style.width = '50%'; // 可以设置为100%以匹配父容器的宽度
       this.filterInput.style.zIndex = '1000'; // 确保输入框在顶部
       this.filterInput.style.border = 'solid 1px #aaa';
       this.filterInput.autofocus = true; // 设置自动聚焦
@@ -355,6 +575,11 @@ export class CheckboxEditor implements CellEditor, InstantlyAppliable {
     // To show the layer which has appropriate position
     setOpacity(this.layer, 1);
 
+    // 记录最大高度，用于设置filterSelect的size
+    this.maxLayerHeight = this.layer.clientHeight;
+    const count = Math.floor(this.maxLayerHeight / 18); // 18px为filterSelect中每个option的高度
+    this.optionSize = this.selectOptions.length > count ? count : this.selectOptions.length;
+
     // add by liq 初始化输入框
     if (this.filterable) {
       this.updateEverySize();
@@ -368,13 +593,34 @@ export class CheckboxEditor implements CellEditor, InstantlyAppliable {
     this.layer.removeEventListener('change', this.onChange);
     this.layer.removeEventListener('mouseover', this.onMouseover);
     this.layer.removeEventListener('keydown', this.onKeydown);
-    // add by liq 移除过滤输入框的事件监听
-    if (this.filterable && this.filterInput) {
-      this.filterInput.removeEventListener('input', this.onFilterInput);
-      this.filterInput.removeEventListener('focus', this.onFilterFocus);
-      this.filterInput.removeEventListener('blur', this.onFilterBlur);
-      getContainerElement(this.el).removeChild(this.filterInput); // 从 layer 中移除 filterInput
-      this.filterInput = null; // 将引用设置为 null
+    // add by liq 移除过滤下拉及输入框的事件监听
+    if (this.filterable) {
+      if (this.filterSelect) {
+        // 左侧下拉
+        this.filterSelect.removeEventListener('focus', this.onFilterSelectFocus);
+        this.filterSelect.removeEventListener('blur', this.onFilterSelectBlur);
+        this.filterSelect.removeEventListener('change', this.onFilterSelectChange);
+        this.filterSelect.removeEventListener('mouseup', this.onFilterSelectMouseup);
+        getContainerElement(this.el).removeChild(this.filterSelect); // 从 layer 中移除 filterSelect
+        this.filterSelect = null; // 将引用设置为 null
+      }
+      if (this.filterSelInput) {
+        // 左侧下拉的input
+        this.filterSelInput.removeEventListener('focus', this.onFilterSelInputFocus);
+        this.filterSelInput.removeEventListener('blur', this.onFilterSelInputBlur);
+        this.filterSelInput.removeEventListener('input', this.onFilterSelInputChange);
+        this.filterSelInput.removeEventListener('click', this.onFilterSelInputClick);
+        getContainerElement(this.el).removeChild(this.filterSelInput); // 从 layer 中移除 filterSelInput
+        this.filterSelInput = null; // 将引用设置为 null
+      }
+      if (this.filterInput) {
+        // 右侧input框
+        this.filterInput.removeEventListener('input', this.onFilterInput);
+        this.filterInput.removeEventListener('focus', this.onFilterFocus);
+        this.filterInput.removeEventListener('blur', this.onFilterBlur);
+        getContainerElement(this.el).removeChild(this.filterInput); // 从 layer 中移除 filterInput
+        this.filterInput = null; // 将引用设置为 null
+      }
     }
     getContainerElement(this.el).removeChild(this.layer);
     this.initLayerPos = null;
